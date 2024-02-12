@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.AI;
 
 public enum EnemyState
@@ -25,37 +27,55 @@ public class EnemyMovement : MonoBehaviour
     //public EnemyLineOfSightChecker lineOfSightChecker;
     [Header("State")]
     public EnemyState DefaultState;
-    private EnemyState _state;
-    public delegate void StateChangeEvent(EnemyState oldState, EnemyState newState);
-    public StateChangeEvent OnStateChange;
+    private EnemyState _state = EnemyState.Spawn;
+    //<old state, new state>
+    public UnityEvent<EnemyState, EnemyState> StateChangeEvent;
     public NavMeshTriangulation _triangulation;
     public float UpdateSpeed = 0.1f;
     public float WanderMaxRoamDistance = 4f;
-    public float ChaseMovespeedMultiplier = 0.5f;
+    public float ChaseMovespeedMultiplier = 1.2f;
     private int _waypointIndex = 0;
     private Vector3[] _waypoints = new Vector3[4];
+    public Transform _target;
 
     [Space()]
 
     [Header("Pack Behavior")]
-    public Transform _target;
+    [SerializeField]
+    [Tooltip("Minimum distance from other enemies")]
+    private float _minDistanceFromEnemy = 1.5f;
+    [SerializeField]
+    [Tooltip("Determines if this Enemy is a pack Alpha")]
     private bool _isAlpha;
+    [SerializeField]
+    [Tooltip("(Alpha Only) Maximum distance members of the pack can be from the Alpha")]
+    public float MaxDistanceFromAlpha = 3f;
+    [SerializeField]
+    [Tooltip("Minimum distance needed to break off from reset state")]
+    private float _minimumResetDistance = 1f;
+    [SerializeField]
+    [Tooltip("Maximum distance to aggro nearby enemies")]
     private float _alertDistance = 4f;
-    public Transform _alphaMember;
+    public EnemyMovement _alphaMember;
 
-
-    
+    [Space()]
+    [Header("Debug")]
+    [SerializeField]
+    private TextMeshProUGUI _enemyStateText;
+    [SerializeField]
+    private LayerMask _enemyLayerMask;
 
     //private AgentLinkMover linkMover;
     private NavMeshAgent _agent;
     private Coroutine _stateCoroutine;
+    private Collider _enemyCollider;
 
     public EnemyState State
     {
         get { return _state; }
         set
         {
-            OnStateChange?.Invoke(_state, value);
+            StateChangeEvent.Invoke(_state, value);
             _state = value;
         }
     }
@@ -66,6 +86,8 @@ public class EnemyMovement : MonoBehaviour
 
         _agent = GetComponent<NavMeshAgent>();
 
+        _enemyCollider = GetComponent<Collider>();
+
         /*linkMover = GetComponent<AgentLinkMover>();
 
         linkMover.OnLinkStart += HandleLinkStart;
@@ -74,14 +96,30 @@ public class EnemyMovement : MonoBehaviour
         lineOfSightChecker.onGainSight += HandleGainSight;
         lineOfSightChecker.onLoseSight += HandleLoseSight;*/
 
-        OnStateChange += HandleStateChange;
+        StateChangeEvent.AddListener(HandleStateChange);
     }
 
     private void OnDrawGizmosSelected()
     {
         //waypoints
+        //Gizmos.color = Color.yellow;
+        //Gizmos.DrawLineStrip(_waypoints, true);
+
+        //wander roam distance
         Gizmos.color = Color.yellow;
-        Gizmos.DrawLineStrip(_waypoints, true);
+        Gizmos.DrawWireSphere(transform.position, WanderMaxRoamDistance);
+
+        //minimum distance from enemy
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, _minDistanceFromEnemy);
+
+        Gizmos.color = Color.cyan;        
+        if (!_isAlpha)
+            //minimum reset range
+            Gizmos.DrawWireSphere(transform.position, _minimumResetDistance);
+        else
+            //max range from alpha
+            Gizmos.DrawWireSphere(transform.position, MaxDistanceFromAlpha);
 
         //alert range
         Gizmos.color = Color.red;
@@ -96,6 +134,16 @@ public class EnemyMovement : MonoBehaviour
     private void OnDisable()
     {
         _state = DefaultState;
+    }
+
+    void Update()
+    {
+        _enemyStateText.text = _state.ToString();
+
+        //animator.SetBool(isMoving, agent.velocity.magnitude > 0.01f);
+        if (!_isAlpha)
+            if (_state != EnemyState.Reset && Vector3.Distance(transform.position, _alphaMember.transform.position) > _alphaMember.MaxDistanceFromAlpha)
+                State = EnemyState.Reset;
     }
 
     private void HandleGainSight(Player player)
@@ -121,6 +169,8 @@ public class EnemyMovement : MonoBehaviour
 
     private void HandleStateChange(EnemyState oldState, EnemyState newState)
     {
+        Debug.Log($"{gameObject.name} is switching from {oldState} to {newState}");
+
         if (oldState == newState)
             return;
 
@@ -137,15 +187,19 @@ public class EnemyMovement : MonoBehaviour
             case EnemyState.Idle:
                 _stateCoroutine = StartCoroutine(IdleStateUpdate());
                 break;
+            case EnemyState.Wander:
+                _stateCoroutine = StartCoroutine(WanderStateUpdate());
+                break;
+            case EnemyState.Reset:
+                _stateCoroutine = StartCoroutine(ResetStateUpdate());
+                break;
             case EnemyState.Patrol:
                 _stateCoroutine = StartCoroutine(PatrolStateUpdate());
                 break;
             case EnemyState.Chase:
                 _stateCoroutine = StartCoroutine(ChaseStateUpdate());
                 break;
-            case EnemyState.Wander:
-                _stateCoroutine = StartCoroutine(WanderStateUpdate());
-                break;
+            
         }
     }
 
@@ -171,7 +225,8 @@ public class EnemyMovement : MonoBehaviour
 
             Debug.Log("New Waypoint Set at " + waypoints[i]);
         }*/
-        OnStateChange?.Invoke(EnemyState.Spawn, DefaultState);
+        //StateChangeEvent.Invoke(EnemyState.Spawn, DefaultState);
+        State = DefaultState;
     }
 
     public void Aggro()
@@ -188,11 +243,6 @@ public class EnemyMovement : MonoBehaviour
                     enemy.Aggro();
             }
         }
-    }
-
-    void Update()
-    {
-        //animator.SetBool(isMoving, agent.velocity.magnitude > 0.01f);
     }
 
     private IEnumerator IdleStateUpdate()
@@ -212,13 +262,35 @@ public class EnemyMovement : MonoBehaviour
             {
                 yield return wait;
             }
-            else if (_agent.remainingDistance <= _agent.stoppingDistance)
+            else
             {
-                Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
+                Collider[] nearestEnemies = Physics.OverlapSphere(transform.position, _minDistanceFromEnemy, _enemyLayerMask);
+                Collider nearestEnemy = null;
 
-                if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
+                float nearestDistance = float.MaxValue;
+                foreach (Collider enemy in nearestEnemies)
                 {
-                    _agent.SetDestination(hit.position);
+                    if (enemy == _enemyCollider)
+                        continue;
+
+                    Vector3 vectorToEnemy = enemy.transform.position - _agent.transform.position;
+                    float distanceToEnemy = Vector3.SqrMagnitude(vectorToEnemy);
+
+                    if (distanceToEnemy < nearestDistance)
+                    {
+                        nearestDistance = distanceToEnemy;
+                        nearestEnemy = enemy;
+                    }
+                }
+
+                if (_agent.remainingDistance <= _agent.stoppingDistance || ( nearestEnemy != null && nearestDistance < _minDistanceFromEnemy))
+                {
+                    Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
+
+                    if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
+                    {
+                        _agent.SetDestination(hit.position);
+                    }
                 }
             }
             yield return wait;
@@ -229,23 +301,13 @@ public class EnemyMovement : MonoBehaviour
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
-        while (true)
+        while (Vector3.Distance(transform.position, _alphaMember.transform.position) > _minimumResetDistance)
         {
-            if (!_agent.enabled || !_agent.isOnNavMesh)
-            {
-                yield return wait;
-            }
-            else if (_agent.remainingDistance <= _agent.stoppingDistance)
-            {
-                Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
-
-                if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
-                {
-                    _agent.SetDestination(hit.position);
-                }
-            }
+            _agent.SetDestination(_alphaMember.transform.position);
             yield return wait;
         }
+
+        State = DefaultState;
     }
 
     private IEnumerator PatrolStateUpdate()
