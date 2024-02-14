@@ -10,7 +10,8 @@ public enum EnemyState
     Spawn,
     Idle,
     Wander,
-    Reset,
+    ApproachAlpha,
+    MakeDistance,
     Patrol,
     Chase
 }
@@ -69,6 +70,8 @@ public class EnemyMovement : MonoBehaviour
     private NavMeshAgent _agent;
     private Coroutine _stateCoroutine;
     private Collider _enemyCollider;
+    private float _nearestDistance;
+    private Collider _nearestEnemy;
 
     public EnemyState State
     {
@@ -142,8 +145,8 @@ public class EnemyMovement : MonoBehaviour
 
         //animator.SetBool(isMoving, agent.velocity.magnitude > 0.01f);
         if (!_isAlpha)
-            if (_state != EnemyState.Reset && Vector3.Distance(transform.position, _alphaMember.transform.position) > _alphaMember.MaxDistanceFromAlpha)
-                State = EnemyState.Reset;
+            if (_state != EnemyState.ApproachAlpha && Vector3.Distance(transform.position, _alphaMember.transform.position) > _alphaMember.MaxDistanceFromAlpha)
+                State = EnemyState.ApproachAlpha;
     }
 
     private void HandleGainSight(Player player)
@@ -169,7 +172,7 @@ public class EnemyMovement : MonoBehaviour
 
     private void HandleStateChange(EnemyState oldState, EnemyState newState)
     {
-        Debug.Log($"{gameObject.name} is switching from {oldState} to {newState}");
+        //Debug.Log($"{gameObject.name} is switching from {oldState} to {newState}");
 
         if (oldState == newState)
             return;
@@ -185,19 +188,22 @@ public class EnemyMovement : MonoBehaviour
         switch (newState)
         {
             case EnemyState.Idle:
-                _stateCoroutine = StartCoroutine(IdleStateUpdate());
+                _stateCoroutine = StartCoroutine(IdleUpdate());
                 break;
             case EnemyState.Wander:
-                _stateCoroutine = StartCoroutine(WanderStateUpdate());
+                _stateCoroutine = StartCoroutine(WanderUpdate());
                 break;
-            case EnemyState.Reset:
-                _stateCoroutine = StartCoroutine(ResetStateUpdate());
+            case EnemyState.ApproachAlpha:
+                _stateCoroutine = StartCoroutine(ApproachAlphaUpdate());
+                break;
+            case EnemyState.MakeDistance:
+                _stateCoroutine = StartCoroutine(MakeDistanceUpdate());
                 break;
             case EnemyState.Patrol:
-                _stateCoroutine = StartCoroutine(PatrolStateUpdate());
+                _stateCoroutine = StartCoroutine(PatrolUpdate());
                 break;
             case EnemyState.Chase:
-                _stateCoroutine = StartCoroutine(ChaseStateUpdate());
+                _stateCoroutine = StartCoroutine(ChaseUpdate());
                 break;
             
         }
@@ -245,59 +251,54 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
-    private IEnumerator IdleStateUpdate()
+    private IEnumerator IdleUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
         yield return wait;
     }
 
-    private IEnumerator WanderStateUpdate()
+    private IEnumerator WanderUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);      
 
         while (true)
         {
+            //if this don't exist or smthn then keep waiting til it does
             if (!_agent.enabled || !_agent.isOnNavMesh)
             {
                 yield return wait;
+                continue;
             }
-            else
+
+            if (_nearestDistance < _minDistanceFromEnemy)
             {
-                Collider[] nearestEnemies = Physics.OverlapSphere(transform.position, _minDistanceFromEnemy, _enemyLayerMask);
-                Collider nearestEnemy = null;
+                Vector2 escapePoint = (_agent.transform.position - _nearestEnemy.transform.position).normalized * WanderMaxRoamDistance;
 
-                float nearestDistance = float.MaxValue;
-                foreach (Collider enemy in nearestEnemies)
+                if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(escapePoint.x, 0, escapePoint.y), out NavMeshHit hit, 2f, _agent.areaMask))
                 {
-                    if (enemy == _enemyCollider)
-                        continue;
-
-                    Vector3 vectorToEnemy = enemy.transform.position - _agent.transform.position;
-                    float distanceToEnemy = Vector3.SqrMagnitude(vectorToEnemy);
-
-                    if (distanceToEnemy < nearestDistance)
-                    {
-                        nearestDistance = distanceToEnemy;
-                        nearestEnemy = enemy;
-                    }
+                    _agent.SetDestination(hit.position);
+                    State = EnemyState.MakeDistance;
                 }
+              
+            }
+                
 
-                if (_agent.remainingDistance <= _agent.stoppingDistance || ( nearestEnemy != null && nearestDistance < _minDistanceFromEnemy))
+            if (_agent.remainingDistance <= _agent.stoppingDistance)
+            {
+                Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
+
+                if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
                 {
-                    Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
-
-                    if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
-                    {
-                        _agent.SetDestination(hit.position);
-                    }
+                    _agent.SetDestination(hit.position);
                 }
             }
+
             yield return wait;
         }
     }
 
-    private IEnumerator ResetStateUpdate()
+    private IEnumerator ApproachAlphaUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
@@ -310,7 +311,20 @@ public class EnemyMovement : MonoBehaviour
         State = DefaultState;
     }
 
-    private IEnumerator PatrolStateUpdate()
+    private IEnumerator MakeDistanceUpdate()
+    {
+        /*Vector3 vectorToEnemy = enemy.transform.position - _agent.transform.position;
+        float distanceToEnemy = Vector3.SqrMagnitude(vectorToEnemy);
+
+        while (_agent.remainingDistance <= _agent.stoppingDistance)
+        {
+            yield return new WaitForSeconds(UpdateSpeed);
+        }*/
+
+        State = DefaultState;
+    }
+
+    private IEnumerator PatrolUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
@@ -331,7 +345,7 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
-    private IEnumerator ChaseStateUpdate()
+    private IEnumerator ChaseUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
@@ -342,5 +356,32 @@ public class EnemyMovement : MonoBehaviour
             _agent.SetDestination(_target.transform.position);
             yield return wait;
         }
+    }
+
+    //get collider of nearest enemy that's too close
+    private void GetTooCloseEnemy()
+    {
+        Collider[] nearestEnemies = Physics.OverlapSphere(transform.position, _minDistanceFromEnemy, _enemyLayerMask);
+        Collider nearestEnemy = null;
+
+        float nearestDistance = float.MaxValue;
+        foreach (Collider enemy in nearestEnemies)
+        {
+            //ignore this enemy
+            if (enemy == _enemyCollider)
+                continue;
+
+            Vector3 vectorToEnemy = enemy.transform.position - _agent.transform.position;
+            float distanceToEnemy = Vector3.SqrMagnitude(vectorToEnemy);
+
+            if (distanceToEnemy < nearestDistance)
+            {
+                nearestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        _nearestDistance = nearestDistance;
+        _nearestEnemy = nearestEnemy;
     }
 }
