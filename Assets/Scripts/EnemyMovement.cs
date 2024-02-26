@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.AI;
+using static UnityEngine.Rendering.DebugUI;
 
 public enum EnemyState
 {
@@ -62,6 +63,8 @@ public class EnemyMovement : MonoBehaviour
     [Space()]
     [Header("Debug")]
     [SerializeField]
+    private bool _showDebugText = true;
+    [SerializeField]
     private TextMeshProUGUI _enemyStateText;
     [SerializeField]
     private LayerMask _enemyLayerMask;
@@ -80,6 +83,7 @@ public class EnemyMovement : MonoBehaviour
         {
             StateChangeEvent.Invoke(_state, value);
             _state = value;
+            if (_showDebugText) Debug.Log($"{gameObject.name} is now in state {_state}");
         }
     }
 
@@ -144,6 +148,8 @@ public class EnemyMovement : MonoBehaviour
         _enemyStateText.text = _state.ToString();
 
         //animator.SetBool(isMoving, agent.velocity.magnitude > 0.01f);
+
+        //if not alpha or currently approaching one, and distance from nearest alpha too far, start approaching alpha
         if (!_isAlpha)
             if (_state != EnemyState.ApproachAlpha && Vector3.Distance(transform.position, _alphaMember.transform.position) > _alphaMember.MaxDistanceFromAlpha)
                 State = EnemyState.ApproachAlpha;
@@ -151,7 +157,7 @@ public class EnemyMovement : MonoBehaviour
 
     private void HandleGainSight(Player player)
     {
-        Debug.Log("Player Spotted!");
+        if (_showDebugText) Debug.Log("Player Spotted!");
         State = EnemyState.Chase;
     }
 
@@ -172,7 +178,7 @@ public class EnemyMovement : MonoBehaviour
 
     private void HandleStateChange(EnemyState oldState, EnemyState newState)
     {
-        //Debug.Log($"{gameObject.name} is switching from {oldState} to {newState}");
+        if (_showDebugText) Debug.Log($"{gameObject.name} is switching from {oldState} to {newState}");
 
         if (oldState == newState)
             return;
@@ -184,6 +190,7 @@ public class EnemyMovement : MonoBehaviour
         {
             _agent.speed /= ChaseMovespeedMultiplier;
         }
+
 
         switch (newState)
         {
@@ -241,6 +248,7 @@ public class EnemyMovement : MonoBehaviour
 
         Collider[] colliders = Physics.OverlapSphere(transform.position, _alertDistance);
 
+        //for every enemy in aggro range, aggro those not currently aggro'd
         foreach (Collider collider in colliders)
         {
             if (collider.TryGetComponent(out EnemyMovement enemy))
@@ -250,7 +258,8 @@ public class EnemyMovement : MonoBehaviour
             }
         }
     }
-
+    
+    //update for idle state
     private IEnumerator IdleUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
@@ -258,6 +267,7 @@ public class EnemyMovement : MonoBehaviour
         yield return wait;
     }
 
+    //update for idle state
     private IEnumerator WanderUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);      
@@ -271,19 +281,24 @@ public class EnemyMovement : MonoBehaviour
                 continue;
             }
 
+            GetTooCloseEnemy();
+
+            //if distance to nearest enemy too close, set escape point exact opposite direction to enemy and set state
             if (_nearestDistance < _minDistanceFromEnemy)
             {
+                //State = EnemyState.MakeDistance;
                 Vector2 escapePoint = (_agent.transform.position - _nearestEnemy.transform.position).normalized * WanderMaxRoamDistance;
 
                 if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(escapePoint.x, 0, escapePoint.y), out NavMeshHit hit, 2f, _agent.areaMask))
                 {
                     _agent.SetDestination(hit.position);
+                    if (_showDebugText) Debug.Log($"{gameObject.name} detects enemy too near: {_nearestEnemy.name}, setting new position to {hit.position} (current position: {transform.position})");
                     State = EnemyState.MakeDistance;
                 }
               
             }
                 
-
+            //new wander "waypoint" once old one is reached
             if (_agent.remainingDistance <= _agent.stoppingDistance)
             {
                 Vector2 point = Random.insideUnitCircle * WanderMaxRoamDistance;
@@ -298,10 +313,12 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
+    //update for aproach alpha state
     private IEnumerator ApproachAlphaUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
 
+        //while distance > resetdistance
         while (Vector3.Distance(transform.position, _alphaMember.transform.position) > _minimumResetDistance)
         {
             _agent.SetDestination(_alphaMember.transform.position);
@@ -311,19 +328,54 @@ public class EnemyMovement : MonoBehaviour
         State = DefaultState;
     }
 
+    //update for make distance state
     private IEnumerator MakeDistanceUpdate()
     {
-        /*Vector3 vectorToEnemy = enemy.transform.position - _agent.transform.position;
-        float distanceToEnemy = Vector3.SqrMagnitude(vectorToEnemy);
+        /*Vector2 escapePoint = (_agent.transform.position - _nearestEnemy.transform.position).normalized * WanderMaxRoamDistance;
 
-        while (_agent.remainingDistance <= _agent.stoppingDistance)
+        if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(escapePoint.x, 0, escapePoint.y), out NavMeshHit hit, 2f, _agent.areaMask))
         {
-            yield return new WaitForSeconds(UpdateSpeed);
-        }*/
+            _agent.SetDestination(hit.position);
+            Debug.Log($"{gameObject.name} detects enemy too near: {_nearestEnemy.name}, setting new position to {hit.position} (current position: {transform.position})");
+        }
 
+        Debug.Log($"{gameObject.name} is running to {_agent.destination} from {transform.position}, current state is {_state}");*/
+
+        WaitForSeconds wait = new(UpdateSpeed);
+
+        //save nearest enemy
+        Collider currentNearestEnemy = _nearestEnemy;
+
+        while (_agent.remainingDistance > _agent.stoppingDistance)
+        {
+            if (_showDebugText) Debug.Log($"remaining distance: {_agent.remainingDistance}, stopping distance: {_agent.stoppingDistance}");
+
+            GetTooCloseEnemy();
+
+            //if nearest enemy is a different one, set escape point exact opposite direction to new enemy and set state
+            if (currentNearestEnemy != _nearestEnemy && _nearestEnemy != null)
+            {
+                currentNearestEnemy = _nearestEnemy;
+
+                Vector2 escapePoint = (_agent.transform.position - _nearestEnemy.transform.position).normalized * WanderMaxRoamDistance;
+
+                if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(escapePoint.x, 0, escapePoint.y), out NavMeshHit hit2, 2f, _agent.areaMask))
+                {
+                    _agent.SetDestination(hit2.position);
+                }
+
+                if (_showDebugText) Debug.Log($"{gameObject.name} detects new nearest enemy {_nearestEnemy}, setting new position to {hit2.position}");
+            }
+
+            yield return wait;
+        }
+
+        //when agent hits escape point, reset state
+        if (_showDebugText) Debug.Log($"{gameObject.name} has successfully escaped");
         State = DefaultState;
     }
 
+    //update for patrol state
     private IEnumerator PatrolUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
@@ -345,6 +397,7 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
+    //update for chase state
     private IEnumerator ChaseUpdate()
     {
         WaitForSeconds wait = new(UpdateSpeed);
@@ -364,6 +417,7 @@ public class EnemyMovement : MonoBehaviour
         Collider[] nearestEnemies = Physics.OverlapSphere(transform.position, _minDistanceFromEnemy, _enemyLayerMask);
         Collider nearestEnemy = null;
 
+        //work thru array til nearest distance and enemy are found
         float nearestDistance = float.MaxValue;
         foreach (Collider enemy in nearestEnemies)
         {
