@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    public EnemyStats EnemyStats;
+
     public float health = 100;
     public Animator animator;
 

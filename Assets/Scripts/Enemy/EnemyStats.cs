@@ -26,6 +26,8 @@ public class EnemyStats : ScriptableObject
     public float CombatStoppingDistance = 2f;
     [Tooltip("Agent movement speed multiplier during combat")]
     public float CombatSpeedMultiplier = 1.2f;
+    [Tooltip("Interval between enemy attack animations (DEBUG: PER ATTACK)")]
+    public float AttackCooldown = 1.2f;
 
     [Space()]
 

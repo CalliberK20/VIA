@@ -6,7 +6,7 @@ using UnityEngine;
 public class LineOfSightChecker : MonoBehaviour
 {
     public float FieldOfView;
-    public LayerMask LineOfSightLayers;
+    //public LayerMask LineOfSightLayers;
     public List<string> LineOfSightTags;
 
     public delegate void GainSightEvent(Transform target);
@@ -30,6 +30,8 @@ public class LineOfSightChecker : MonoBehaviour
             if (!other.CompareTag(tag))
                 continue;
 
+            Debug.Log($"Collider {other} in range!");
+
             if (!CheckLineOfSight(other.transform))
             {
                 _checkForLineOfSight = StartCoroutine(CheckLineOfSightInterval(other.transform));
@@ -42,29 +44,31 @@ public class LineOfSightChecker : MonoBehaviour
     {
         foreach (string tag in LineOfSightTags)
         {
-            if (other.CompareTag(tag))
-            {
-                OnLoseSight?.Invoke(other.transform);
-                if (_checkForLineOfSight != null)
-                    StopCoroutine(_checkForLineOfSight);
+            if (!other.CompareTag(tag))
+                continue;
 
-                if (!CheckLineOfSight(other.transform))
-                {
-                    _checkForLineOfSight = StartCoroutine(CheckLineOfSightInterval(other.transform));
-                }
-                break;
-            }
-            else continue;
+            Debug.Log($"Collider {other} exited range!");
+
+            OnLoseSight?.Invoke(other.transform);
+            if (_checkForLineOfSight != null)
+                StopCoroutine(_checkForLineOfSight);
+
+            /*if (!CheckLineOfSight(other.transform))
+            {
+                _checkForLineOfSight = StartCoroutine(CheckLineOfSightInterval(other.transform));
+            }*/
+            break;
         }
     }
 
     private bool CheckLineOfSight(Transform target)
     {
-        Vector3 direction = (target.position - transform.position).normalized;
+        OnGainSight?.Invoke(target);
+        /*Vector3 direction = (target.position - transform.position).normalized;
         if (Vector3.Dot(transform.forward, direction) >= Mathf.Cos(FieldOfView))
         {
             OnGainSight?.Invoke(target);
-        }
+        }*/
         return false;
     }
 

@@ -21,6 +21,7 @@ public enum EnemyAggression
 }
 
 [RequireComponent(typeof(LineOfSightChecker))]
+[RequireComponent(typeof(Enemy))]
 public class EnemyMovement : MonoBehaviour
 {
     //private const string isMoving = "isMoving";
@@ -42,11 +43,6 @@ public class EnemyMovement : MonoBehaviour
     public Transform _target;
 
     [Space()]
-
-    [SerializeField]
-    private EnemyStats _enemyStats;
-
-    [Space()]
     [Header("Debug")]
     [SerializeField]
     private bool _showDebugText = true;
@@ -56,6 +52,7 @@ public class EnemyMovement : MonoBehaviour
     private LayerMask _enemyLayerMask;
 
     //private AgentLinkMover linkMover;
+    private Enemy _enemy;
     private NavMeshAgent _agent;
     private Coroutine _stateCoroutine;
     private LineOfSightChecker _lineOfSightChecker;
@@ -77,6 +74,7 @@ public class EnemyMovement : MonoBehaviour
 
         _agent = GetComponent<NavMeshAgent>();
 
+        _enemy = GetComponent<Enemy>();
         _lineOfSightChecker = GetComponent<LineOfSightChecker>();
 
         /*linkMover = GetComponent<AgentLinkMover>();
@@ -92,8 +90,8 @@ public class EnemyMovement : MonoBehaviour
 
     private void Start()
     {
-        _lineOfSightChecker.LineOfSightTags = _enemyStats.AggroTags;
-        _lineOfSightChecker.SphereCollider.radius = _enemyStats.AggroRange;
+        _lineOfSightChecker.LineOfSightTags = _enemy.EnemyStats.AggroTags;
+        _lineOfSightChecker.SphereCollider.radius = _enemy.EnemyStats.AggroRange;
     }
 
     private void OnDrawGizmosSelected()
@@ -104,15 +102,15 @@ public class EnemyMovement : MonoBehaviour
 
         //wander roam distance
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, _enemyStats.MaxWanderDistance);
+        Gizmos.DrawWireSphere(transform.position, _enemy.EnemyStats.MaxWanderDistance);
 
         //alert range
         Gizmos.color = new Color(255, 140, 0);
-        Gizmos.DrawWireSphere(transform.position, _enemyStats.AlertRange);
+        Gizmos.DrawWireSphere(transform.position, _enemy.EnemyStats.AlertRange);
 
         //aggro range
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, _enemyStats.AggroRange);
+        Gizmos.DrawWireSphere(transform.position, _enemy.EnemyStats.AggroRange);
     }
 
     private void OnEnable()
@@ -122,7 +120,7 @@ public class EnemyMovement : MonoBehaviour
 
     private void OnDisable()
     {
-        _state = _enemyStats.DefaultState;
+        _state = _enemy.EnemyStats.DefaultState;
     }
 
     void Update()
@@ -134,14 +132,15 @@ public class EnemyMovement : MonoBehaviour
 
     private void HandleGainSight(Transform target)
     {
-        if (_showDebugText) Debug.Log("Player Spotted!");
+        if (_showDebugText) Debug.Log("Target Spotted!");
         _target = target;
         State = EnemyState.Combat;
     }
 
     private void HandleLoseSight(Transform target)
     {
-        State = _enemyStats.DefaultState;
+        if (_showDebugText) Debug.Log("Target Lost!");
+        State = _enemy.EnemyStats.DefaultState;
         _target = null;
     }
 
@@ -166,9 +165,12 @@ public class EnemyMovement : MonoBehaviour
         //reset combat stat modifiers
         if (oldState == EnemyState.Combat)
         {
-            _agent.speed /= _enemyStats.CombatSpeedMultiplier;
-            _agent.stoppingDistance = _enemyStats.StoppingDistance;
+            _agent.speed /= _enemy.EnemyStats.CombatSpeedMultiplier;
+            _agent.stoppingDistance = _enemy.EnemyStats.StoppingDistance;
         }
+
+        if (oldState == EnemyState.Idle)
+            _agent.speed = _enemy.EnemyStats.Speed;
 
 
         switch (newState)
@@ -212,14 +214,14 @@ public class EnemyMovement : MonoBehaviour
             Debug.Log("New Waypoint Set at " + waypoints[i]);
         }*/
         //StateChangeEvent.Invoke(EnemyState.Spawn, DefaultState);
-        State = _enemyStats.DefaultState;
+        State = _enemy.EnemyStats.DefaultState;
     }
 
     public void Aggro()
     {
         State = EnemyState.Combat;
 
-        Collider[] colliders = Physics.OverlapSphere(transform.position, _enemyStats.AlertRange);
+        Collider[] colliders = Physics.OverlapSphere(transform.position, _enemy.EnemyStats.AlertRange);
 
         //for every enemy in aggro range, aggro those not currently aggro'd
         foreach (Collider collider in colliders)
@@ -235,15 +237,21 @@ public class EnemyMovement : MonoBehaviour
     //update for idle state
     private IEnumerator IdleUpdate()
     {
-        WaitForSeconds wait = new(_enemyStats.UpdateSpeed);
+        WaitForSeconds wait = new(_enemy.EnemyStats.UpdateSpeed);
 
-        yield return wait;
+        _agent.speed = 0f;
+
+        while (true)
+        {
+            yield return wait;
+        }
+        
     }
 
     //update for idle state
     private IEnumerator WanderUpdate()
     {
-        WaitForSeconds wait = new(_enemyStats.UpdateSpeed);      
+        WaitForSeconds wait = new(_enemy.EnemyStats.UpdateSpeed);      
 
         while (true)
         {
@@ -257,7 +265,7 @@ public class EnemyMovement : MonoBehaviour
             //new wander "waypoint" once old one is reached
             if (_agent.remainingDistance <= _agent.stoppingDistance)
             {
-                Vector2 point = Random.insideUnitCircle * _enemyStats.MaxWanderDistance;
+                Vector2 point = Random.insideUnitCircle * _enemy.EnemyStats.MaxWanderDistance;
 
                 if (NavMesh.SamplePosition(_agent.transform.position + new Vector3(point.x, 0, point.y), out NavMeshHit hit, 2f, _agent.areaMask))
                 {
@@ -272,7 +280,7 @@ public class EnemyMovement : MonoBehaviour
     //update for patrol state
     private IEnumerator PatrolUpdate()
     {
-        WaitForSeconds wait = new(_enemyStats.UpdateSpeed);
+        WaitForSeconds wait = new(_enemy.EnemyStats.UpdateSpeed);
 
         yield return new WaitUntil(() => _agent.enabled && _agent.isOnNavMesh);
         _agent.SetDestination(_waypoints[_waypointIndex]);
@@ -294,10 +302,10 @@ public class EnemyMovement : MonoBehaviour
     //update for chase state
     private IEnumerator CombatUpdate()
     {
-        WaitForSeconds wait = new(_enemyStats.UpdateSpeed);
+        WaitForSeconds wait = new(_enemy.EnemyStats.UpdateSpeed);
 
-        _agent.speed *= _enemyStats.CombatSpeedMultiplier;
-        _agent.stoppingDistance = _enemyStats.CombatStoppingDistance;
+        _agent.speed *= _enemy.EnemyStats.CombatSpeedMultiplier;
+        _agent.stoppingDistance = _enemy.EnemyStats.CombatStoppingDistance;
 
         while (enabled && _agent.enabled)
         {

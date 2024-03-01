@@ -19,10 +19,10 @@ MonoBehaviour:
   MaxWanderDistance: 4
   AggroTags:
   - Player
-  AggroRange: 5
+  AggroRange: 6
   AlertRange: 4
   CombatStoppingDistance: 1
-  CombatSpeedMultiplier: 1.2
+  CombatSpeedMultiplier: 2
   MinDistanceFromEnemy: 1.5
   IsAlpha: 0
   MaxDistanceFromAlpha: 3
