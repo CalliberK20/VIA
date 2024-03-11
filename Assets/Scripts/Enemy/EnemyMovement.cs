@@ -32,6 +32,22 @@ public class EnemyMovement : MonoBehaviour
     //private Animator animator;  
 
     //public EnemyLineOfSightChecker lineOfSightChecker;
+
+    [Header("General")]
+    public Transform _target;
+    [Tooltip("Whether enemy can currently move, mostly triggered by script to pause movement during attack")]
+    private bool _canMove = true;
+    public bool CanMove
+    {
+        get { return _canMove; }
+        set { 
+            _canMove = value;
+            _agent.isStopped = !value;
+        }
+    }
+
+    [Space]
+
     [Header("State")]
     private EnemyState _state = EnemyState.Spawn;
     public delegate void StateChangeEvent(EnemyState oldState, EnemyState newState);
@@ -40,9 +56,12 @@ public class EnemyMovement : MonoBehaviour
     private Vector3[] _waypoints = new Vector3[4];
     public NavMeshTriangulation _triangulation;
     private int _waypointIndex = 0;
-    public Transform _target;
 
-    [Space()]
+    [Tooltip("Typically handled by combat state")]
+    public bool InAttackRange = false;
+
+    [Space]
+
     [Header("Debug")]
     [SerializeField]
     private bool _showDebugText = true;
@@ -52,6 +71,7 @@ public class EnemyMovement : MonoBehaviour
     private LayerMask _enemyLayerMask;
 
     //private AgentLinkMover linkMover;
+    [SerializeField]
     private Enemy _enemy;
     private NavMeshAgent _agent;
     private Coroutine _stateCoroutine;
@@ -96,6 +116,9 @@ public class EnemyMovement : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+        if (_enemy == null)
+            return;
+
         //waypoints
         //Gizmos.color = Color.yellow;
         //Gizmos.DrawLineStrip(_waypoints, true);
@@ -117,6 +140,7 @@ public class EnemyMovement : MonoBehaviour
     {
         Spawn();
     }
+
 
     private void OnDisable()
     {
@@ -305,11 +329,19 @@ public class EnemyMovement : MonoBehaviour
         WaitForSeconds wait = new(_enemy.EnemyStats.UpdateSpeed);
 
         _agent.speed *= _enemy.EnemyStats.CombatSpeedMultiplier;
-        _agent.stoppingDistance = _enemy.EnemyStats.CombatStoppingDistance;
+        _agent.stoppingDistance = _enemy.EnemyStats.CombatMinimumStoppingDistance;
+
+        float furthestDistanceToAttack = _enemy.EnemyStats.CombatMaximumStoppingDistance;
 
         while (enabled && _agent.enabled)
         {
             _agent.SetDestination(_target.transform.position);
+
+            if (!InAttackRange && _agent.remainingDistance < furthestDistanceToAttack)
+                InAttackRange = true;
+            else if (InAttackRange && _agent.remainingDistance > furthestDistanceToAttack)
+                InAttackRange = false;
+
             yield return wait;
         }
     }

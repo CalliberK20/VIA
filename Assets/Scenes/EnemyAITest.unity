@@ -305,6 +305,7 @@ GameObject:
   - component: {fileID: 217899233}
   - component: {fileID: 217899235}
   - component: {fileID: 217899237}
+  - component: {fileID: 217899238}
   - component: {fileID: 217899236}
   m_Layer: 7
   m_Name: EnemyAlpha
@@ -356,7 +357,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 101dd972cb3417b4c87f07a2569a443d, type: 2}
+  - {fileID: 2100000, guid: 3928f1134a502c247a0b229cd87b2805, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -415,12 +416,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _target: {fileID: 0}
-  _enemyStats: {fileID: 11400000, guid: ba01619cd1fd5f1468e4985f1e7fb977, type: 2}
-  _showDebugText: 1
+  InAttackRange: 0
+  _showDebugText: 0
   _enemyStateText: {fileID: 1783216555}
   _enemyLayerMask:
     serializedVersion: 2
     m_Bits: 128
+  _enemy: {fileID: 217899234}
 --- !u!114 &217899234
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -433,6 +435,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a036402ea4154743bc82b2ed0adef08, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EnemyStats: {fileID: 11400000, guid: ba01619cd1fd5f1468e4985f1e7fb977, type: 2}
   health: 100
   animator: {fileID: 0}
 --- !u!195 &217899235
@@ -494,6 +497,21 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &217899238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217899228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 128c5e9fc29e4734a8718760bed5d82b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CanAttack: 0
+  _attackDuration: 0.5
+  _attackMaterial: {fileID: 2100000, guid: 101dd972cb3417b4c87f07a2569a443d, type: 2}
 --- !u!1 &592212265
 GameObject:
   m_ObjectHideFlags: 3

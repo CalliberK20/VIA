@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Demo
   m_EditorClassIdentifier: 
   Speed: 1
-  DefaultState: 2
+  DefaultState: 1
   StoppingDistance: 0
   UpdateSpeed: 0.1
   MaxWanderDistance: 4
@@ -22,7 +22,8 @@ MonoBehaviour:
   AggroRange: 6
   AlertRange: 4
   CombatStoppingDistance: 1
-  CombatSpeedMultiplier: 2
+  CombatSpeedMultiplier: 3
+  AttackCooldown: 1.2
   MinDistanceFromEnemy: 1.5
   IsAlpha: 0
   MaxDistanceFromAlpha: 3

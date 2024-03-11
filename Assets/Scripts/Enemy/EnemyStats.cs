@@ -22,8 +22,10 @@ public class EnemyStats : ScriptableObject
     public float AggroRange= 4f;
     [Tooltip("Maximum distance to aggro nearby enemies")]
     public float AlertRange = 4f;
-    [Tooltip("Agent stopping distance for combat")]
-    public float CombatStoppingDistance = 2f;
+    [Tooltip("Closest Agent can be to target in combat before stopping")]
+    public float CombatMinimumStoppingDistance = 1f;
+    [Tooltip("Furthest Agent can be from target to begin attacking")]
+    public float CombatMaximumStoppingDistance = 2f;
     [Tooltip("Agent movement speed multiplier during combat")]
     public float CombatSpeedMultiplier = 1.2f;
     [Tooltip("Interval between enemy attack animations (DEBUG: PER ATTACK)")]

@@ -23,6 +23,7 @@ public class LineOfSightChecker : MonoBehaviour
         SphereCollider = GetComponent<SphereCollider>();
     }
 
+    //something enters, start checking line of sight if matches LoS tags
     private void OnTriggerEnter(Collider other)
     {
         foreach (string tag in LineOfSightTags)
@@ -32,14 +33,17 @@ public class LineOfSightChecker : MonoBehaviour
 
             Debug.Log($"Collider {other} in range!");
 
+            //very first target getting aggro will stay as aggro target unless it leaves
             if (!CheckLineOfSight(other.transform))
             {
+                
                 _checkForLineOfSight = StartCoroutine(CheckLineOfSightInterval(other.transform));
             }
             break;
         }
     }
 
+    //something leaves, stop checking line of sight if matches LoS tags
     private void OnTriggerExit(Collider other)
     {
         foreach (string tag in LineOfSightTags)
@@ -52,11 +56,6 @@ public class LineOfSightChecker : MonoBehaviour
             OnLoseSight?.Invoke(other.transform);
             if (_checkForLineOfSight != null)
                 StopCoroutine(_checkForLineOfSight);
-
-            /*if (!CheckLineOfSight(other.transform))
-            {
-                _checkForLineOfSight = StartCoroutine(CheckLineOfSightInterval(other.transform));
-            }*/
             break;
         }
     }
@@ -72,12 +71,14 @@ public class LineOfSightChecker : MonoBehaviour
         return false;
     }
 
+    //update interval for checking line of sight
     private IEnumerator CheckLineOfSightInterval(Transform target)
     {
         WaitForSeconds wait = new(0.1f);
 
         while (!CheckLineOfSight(target))
         {
+            //LoS might stop being checked as soon as target acquired?
             yield return wait;
         }
     }
