@@ -4,19 +4,47 @@ using UnityEngine;
 
 public class ThirdPersonCamera : MonoBehaviour
 {
-    public Camera cam;
-    public GameObject targetCam;
+    public bool lockOn;
 
-    public float x, y;
+    public new Camera camera;
+    public Transform lockInObj;
+    [Space]
+    public Transform target;
+    public float mouseSensitivity = 1f;
+    private Vector3 Offset;
+    [HideInInspector]
+    public Vector3 rotation;
 
+    private void Start()
+    {
+        Offset = transform.position;
+    }
+
+    private void Update()
+    {
+        transform.position = target.position + new Vector3(0, Offset.y);
+        if(Input.GetKeyDown(KeyCode.Q))
+        {
+            lockOn = !lockOn;
+        }
+    }
 
     // Update is called once per frame
     void LateUpdate()
     {
-        x += Input.GetAxis("Mouse X");
-        y -= Input.GetAxis("Mouse Y");
+        rotation.y -= Input.GetAxis("Mouse Y") * mouseSensitivity;
+        
+        if(lockOn)
+        {
+            transform.LookAt(lockInObj.position);
+            rotation = new Vector3(transform.eulerAngles.y, transform.eulerAngles.x);
+            return;
+        }
 
-        cam.transform.position = new Vector3(x, y, y);
-        cam.transform.rotation = Quaternion.Euler(y * 2f, x * 2f, 0);
+        rotation.x += Input.GetAxis("Mouse X") * mouseSensitivity;
+
+        rotation = new Vector3(rotation.x, Mathf.Clamp(rotation.y, -50f, 52.14f));
+
+        transform.rotation = Quaternion.Euler(rotation.y, rotation.x, 0);
     }
 }

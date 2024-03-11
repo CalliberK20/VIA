@@ -15,7 +15,8 @@ public class AttackScript : MonoBehaviour
     public KeyCode heavyAttack;
     [Space(20)]
     public LayerMask objectsToHit;
-    public Vector3 offset;
+    public float distance;
+    public float height;
     public float sphereSize = 1f;
     [Space(20)]
     //public float atkSpeed;
@@ -34,6 +35,8 @@ public class AttackScript : MonoBehaviour
     [Space]
     public List<ComboPress> comboPress = new List<ComboPress>();
 
+    public static bool inCombat = false;
+
    [System.Serializable]
     public class ComboPress
     {
@@ -45,7 +48,9 @@ public class AttackScript : MonoBehaviour
         public AttackType[] sequence;
     }
 
-    private Animator anim;
+    public Animator anim;
+
+    private Vector3 rot;
 
     // Start is called before the first frame update
     void Start()
@@ -65,6 +70,7 @@ public class AttackScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        rot = Quaternion.Euler(0.0f, CharaControllerMovement._targetRotation, 0.0f) * new Vector3(Vector3.forward.x * distance, height, Vector3.forward.z * distance);
 
         //increment atkprog while less than inputwindow end, else clear buffer
         if (atkProgress < minAnimLength + inputWindow)
@@ -86,33 +92,15 @@ public class AttackScript : MonoBehaviour
                 ComboCheck(AttackType.heavy);
                 atkProgress = 0;
             }
-        }    
+        }
+
     }
 
     bool ComboCheck(AttackType attackType)
     {
         keyPress.Add(attackType);
 
-        /*int check = 0;
-        for (int i = 0; i < comboPress.Count; i++)
-        {
-            for (int j = 0; j < comboPress[i].sequence.Length; j++)
-            {
-                if (keyPress.Count == comboPress[i].sequence.Length && keyPress[j] == comboPress[i].sequence[j])
-                {
-                    check++;
-                    if (check >= comboPress[i].sequence.Length)
-                    {
-                        Debug.Log("This combo is use");
-                        anim.SetTrigger(comboPress[i].comboAnimName);
-                        atkSpeed = comboPress[i].newAtkSpeed;
-                        isInCombo = true;
-                        return true;
-                    }
-                }
-            }
-            check = 0;
-        }*/
+        inCombat = true;
 
         //flag for checking if sequences match
         bool matches;
@@ -152,7 +140,7 @@ public class AttackScript : MonoBehaviour
     public void Attack()
     {
         //Creates a collision sphere
-        Collider[] col = Physics.OverlapSphere(transform.position + offset, sphereSize, objectsToHit);
+        Collider[] col = Physics.OverlapSphere(transform.position + rot, sphereSize, objectsToHit);
 
         //Finds all colliding object
         foreach (Collider collision in col)
@@ -165,84 +153,19 @@ public class AttackScript : MonoBehaviour
             }
         }
     }
-
-    public void ComboIsClear()
-    {
-        /*Debug.Log("cLEAR");
-        keyPress.Clear();*/
-    }
-
     public void ClearBuffer()
     {
         keyPress.Clear();
     }
 
+    public void IsNotInCombat()
+    {
+        inCombat = false;
+    }
+
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position + offset, sphereSize);
+        Gizmos.DrawWireSphere(transform.position + rot, sphereSize);
     }
-
-    /*bool ComboChecker()
-    {
-        int keys = 0;
-                if (keyPress[0] == KeyCode.L)
-                {
-                    Debug.Log("All Keys are true");
-                }*/
-    /*
-            for (int i = 0; i < comboPress.Count; i++)
-            {
-                keys = 0;
-                for(int j = 0; j < comboPress[i].sequence.Length; j++)
-                {
-                    keys = 0;
-                    for(int k = 0; k < keyPress.Count; k++)
-                    {
-                        if (keyPress[k] == comboPress[i].sequence[j])
-                        {
-                            Debug.Log(keys);
-                            keys++;
-                            if (keys >= comboPress[i].sequence.Length)
-                            {
-                                Debug.Log("Combo Found: " + comboPress[i].sequence.Length);
-                                return true;
-                            }
-                        }
-                        else
-                            keys = 0;
-                    }
-                }
-            }*//*
-
-    int k = 0;
-    int spot = 0;
-    for (int j = 0; j < sequence.Length; j++)
-    {
-        for (k = spot; k < keyPress.Count; k++)
-        {
-            if (keyPress[k] == sequence[j])
-            {
-                Debug.Log(keys);
-                keys++;
-
-
-                if (keys >= sequence.Length)
-                {
-                    Debug.Log("Combo Found: " + sequence.Length);
-                    return true;
-                }
-                spot = k + 1;
-                break;
-            }
-            else
-            {
-                keys = 0;
-                spot = 0;
-            }
-        }
-    }
-
-    return false;   
-}*/
 }
