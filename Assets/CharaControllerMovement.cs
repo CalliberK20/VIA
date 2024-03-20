@@ -91,22 +91,12 @@ public class CharaControllerMovement : MonoBehaviour
                     rotationSmoothTime);
             transform.rotation = Quaternion.Euler(0, rotation, 0f);
 
-            if (isRunning && playerStats.stamina > 0)
+            if (isRunning && playerStats.orig_Stamina > 0)
                 playerStats.ReduceStamina(Time.deltaTime);
             targetDirection = Quaternion.Euler(0.0f, rotation, 0.0f) * Vector3.forward;
             if (!AttackScript.inCombat)
             {
-                if(canDashRate >= 0 && canDashTime >= dashTime && playerStats.stamina > 10)
-                {
-                    characterController.Move(targetDirection * (dashSpeed * Time.deltaTime));
-                    canDashRate = 0;
-                    canDashTime = 0;
-                    playerStats.ReduceStamina(10f);
-                }
-                else
-                {
-                    characterController.Move(targetDirection.normalized * (characterSpeed * Time.deltaTime));
-                }
+                characterController.Move(targetDirection.normalized * (characterSpeed * Time.deltaTime));
             }
         }
 

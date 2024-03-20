@@ -39,10 +39,10 @@ public class Enemy : MonoBehaviour
         {
             if (collision.CompareTag("Player"))
             {
-                if (collision.TryGetComponent(out IDamageable playerStat))
-                    playerStat.TakeDamage(10);
-            }
-                
+                if (collision.TryGetComponent(out IDamagable playerStat))
+                    playerStat.Damage(10);
+                Debug.Log("Player take damage");
+            }    
         }
     }
 

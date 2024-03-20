@@ -2,9 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerStats : MonoBehaviour, IDamageable
+public class PlayerStats : MonoBehaviour, IDamagable, IHealable
 {
     public float orig_Health = 100;
+    public float regen_Speed = 1f;
     [Space]
     public float orig_Stamina = 30;
     public float staminaChargeSpeed;
@@ -18,13 +19,26 @@ public class PlayerStats : MonoBehaviour, IDamageable
     [HideInInspector]
     public float charge;
 
-    public void GiveHealth(float heal)
+    private Coroutine runningCorountine;
+
+    private void Start()
+    {
+        UIManager.instance.healthText.text = orig_Health.ToString("00");
+        health = orig_Health;
+    }
+
+    public void Heal(float heal)
     {
         health += heal;
+        UIManager.instance.healthText.text = health.ToString("00");
     }
-    public void TakeDamage(float damage)
+    public void Damage(float damage)
     {
         health -= damage;
+        UIManager.instance.healthText.text = health.ToString("00");
+        if(runningCorountine != null)
+        StopCoroutine(runningCorountine);
+        runningCorountine = StartCoroutine(RecoverHealth());
     }
 
     public void RecoverStamina(float recovery)
@@ -35,10 +49,21 @@ public class PlayerStats : MonoBehaviour, IDamageable
     public void ReduceStamina(float reduction)
     {
         stamina -= reduction;
-        StopAllCoroutines();
+        StopCoroutine(RecoveringStamina());
         StartCoroutine(RecoveringStamina());
     }
 
+
+    private IEnumerator RecoverHealth()
+    {
+        yield return new WaitForSeconds(3f);
+        while(health < orig_Health)
+        {
+            health += regen_Speed * Time.deltaTime;
+            UIManager.instance.healthText.text = health.ToString("00");
+            yield return null;
+        }
+    }
 
     private IEnumerator RecoveringStamina()
     {
@@ -49,4 +74,5 @@ public class PlayerStats : MonoBehaviour, IDamageable
             yield return null;
         }
     }
+
 }
