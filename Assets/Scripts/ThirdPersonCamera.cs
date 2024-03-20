@@ -12,8 +12,8 @@ public class ThirdPersonCamera : MonoBehaviour
     public Transform target;
     public float mouseSensitivity = 1f;
     private Vector3 Offset;
-    [HideInInspector]
-    public Vector3 rotation;
+
+    public static Vector3 rotation;
 
     private void Start()
     {

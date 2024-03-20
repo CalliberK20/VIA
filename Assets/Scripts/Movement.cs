@@ -6,7 +6,7 @@ public class Movement : MonoBehaviour
 {
     public float walkSpeed = 5f;
     private Rigidbody rb;
-    public ThirdPersonCamera thirdPersonCamera;
+    //public ThirdPersonCamera thirdPersonCamera;
     public Animator animator;
     private Vector3 jumpPoint;
 
@@ -34,7 +34,7 @@ public class Movement : MonoBehaviour
     private void LateUpdate()
     {
         jumpPoint = transform.position + new Vector3(0, 0.5f, 0);
-        float x = thirdPersonCamera.rotation.x;
+        float x = ThirdPersonCamera.rotation.x;
         if (Input.GetButton("Vertical"))
             transform.rotation = Quaternion.Euler(new Vector3(0, x));
     }
